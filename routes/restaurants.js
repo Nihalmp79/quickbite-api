@@ -86,6 +86,80 @@ router.post("/:id/menu", adminOnly, async (req, res) => {
     res.status(500).json({ error: "Failed to create menu item" })
   }
 })
+// PUT — update restaurant (admin only)
+router.put("/:id", adminOnly, async (req, res) => {
+  try {
+    const { name, description, image, category, deliveryTime, minOrder, isOpen } = req.body
+    const restaurant = await prisma.restaurant.update({
+      where: { id: parseInt(req.params.id) },
+      data: { name, description, image, category, deliveryTime, minOrder, isOpen }
+    })
+    res.json(restaurant)
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update restaurant" })
+  }
+})
+
+// POST — rate restaurant (only if ordered from it)
+router.post("/:id/rate", async (req, res) => {
+  try {
+    const { rating, comment } = req.body
+    const restaurantId = parseInt(req.params.id)
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Rating must be between 1 and 5" })
+    }
+
+    // check if user has ordered from this restaurant
+    const order = await prisma.order.findFirst({
+      where: {
+        userId: req.userId,
+        restaurantId,
+        status: "Delivered"
+      }
+    })
+    if (!order) {
+      return res.status(400).json({ error: "You can only rate restaurants you have ordered from" })
+    }
+
+    // upsert — create or update rating
+    const newRating = await prisma.rating.upsert({
+      where: { userId_restaurantId: { userId: req.userId, restaurantId } },
+      update: { rating, comment },
+      create: { rating, comment, userId: req.userId, restaurantId }
+    })
+
+    // update restaurant average rating
+    const ratings = await prisma.rating.findMany({ where: { restaurantId } })
+    const avg = ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+
+    await prisma.restaurant.update({
+      where: { id: restaurantId },
+      data: { rating: Math.round(avg * 10) / 10 }
+    })
+
+    res.json(newRating)
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ error: "Failed to rate restaurant" })
+  }
+})
+
+// GET ratings for a restaurant
+router.get("/:id/ratings", async (req, res) => {
+  try {
+    const ratings = await prisma.rating.findMany({
+      where: { restaurantId: parseInt(req.params.id) },
+      include: {
+        user: { select: { id: true, name: true } }
+      },
+      orderBy: { createdAt: "desc" }
+    })
+    res.json(ratings)
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch ratings" })
+  }
+})
 
 // PUT — update menu item (admin only)
 router.put("/menu/:id", adminOnly, async (req, res) => {

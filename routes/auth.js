@@ -6,6 +6,37 @@ const { PrismaClient } = require("@prisma/client")
 const router = express.Router()
 const prisma = new PrismaClient()
 
+
+const authenticate = require("../middleware/auth")
+
+// GET my profile
+router.get("/me", authenticate, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { id: true, email: true, name: true, phone: true, address: true, role: true }
+    })
+    res.json(user)
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch profile" })
+  }
+})
+
+// PUT — update profile
+router.put("/me", authenticate, async (req, res) => {
+  try {
+    const { name, phone, address } = req.body
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { name, phone, address },
+      select: { id: true, email: true, name: true, phone: true, address: true, role: true }
+    })
+    res.json(user)
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update profile" })
+  }
+})
+
 // Register
 router.post("/register", async (req, res) => {
   try {

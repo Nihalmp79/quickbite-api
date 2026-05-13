@@ -18,6 +18,22 @@ model User {
   createdAt DateTime @default(now())
 
   orders    Order[]
+  ratings  Rating[]
+}
+
+model Rating {
+  id           Int        @id @default(autoincrement())
+  rating       Int        // 1-5
+  comment      String?
+  createdAt    DateTime   @default(now())
+
+  userId       Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
 }
 
 model Restaurant {
@@ -34,6 +50,7 @@ model Restaurant {
 
   menuItems   MenuItem[]
   orders      Order[]
+  ratings  Rating[]
 }
 
 model MenuItem {
